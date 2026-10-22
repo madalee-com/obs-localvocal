@@ -7,11 +7,24 @@ jobs:
   probe:
     runs-on: ubuntu-latest
     steps:
-      - name: Environment
+      - name: install flatpak
         run: |
-          echo "whoami: $(whoami)"; echo "id: $(id -u)"
-          echo "--- flatpak version ---"; flatpak --version
-          echo "--- try remote-add --system ---"; flatpak remote-add --if-not-exists --system flathub https://flathub.org/repo/flathub.flatpakrepo 2>&1 || echo "EXIT=$?"
-          echo "--- try remote-add --user ---"; flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo 2>&1 || echo "EXIT=$?"
-          echo "--- XDG data dirs ---"; echo "XDG_DATA_HOME=$XDG_DATA_HOME"; echo "$HOME"
-          echo "--- try with FLATPAK_USER_DIR ---"; mkdir -p /tmp/fp && FLATPAK_USER_DIR=/tmp/fp flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo 2>&1 || echo "EXIT=$?"
+          sudo apt-get update -qq
+          sudo apt-get install -y flatpak flatpak-builder patchelf
+          echo "INSTALL_EXIT=$?"
+          which flatpak flatpak-builder
+          flatpak --version
+      - name: probe scopes
+        run: |
+          set +e
+          echo "whoami=$(whoami) id=$(id -u)"
+          echo "--- system remote-add ---"
+          flatpak remote-add --if-not-exists --system flathub https://flathub.org/repo/flathub.flatpakrepo; echo "system_EXIT=$?"
+          echo "--- user remote-add (default FLATPAK_USER_DIR) ---"
+          echo "FLATPAK_USER_DIR=${FLATPAK_USER_DIR:-<unset>}"
+          flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo; echo "user_EXIT=$?"
+          echo "--- user remote-add (explicit /tmp/fl) ---"
+          mkdir -p /tmp/fl
+          FLATPAK_USER_DIR=/tmp/fl flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo; echo "custom_EXIT=$?"
+          echo "--- list remotes ---"
+          flatpak remotes
