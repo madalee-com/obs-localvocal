@@ -94,4 +94,3 @@ jobs:
           path: |
             out/com.obsproject.Studio.Plugin.LocalVocal.flatpak
           if-no-files-found: error
-          if: ${{ always() }}
