@@ -236,6 +236,10 @@ modules:
     builddir: true
     config-opts:
       - -DCMAKE_BUILD_TYPE=Release
+      # GNUInstallDirs defaulted to lib64 on this toolchain, but OBS scans lib/obs-plugins.
+      # Force lib so obs-localvocal.so + bundled deps land where OBS looks. (Post-install below
+      # relocates lib64->lib as a belt-and-suspenders in case any module ignores the override.)
+      - -DCMAKE_INSTALL_LIBDIR=lib
       - -DCMAKE_AUTOUIC_EXECUTABLE=/app/plugins/LocalVocal/uic-wrapper
       - -DCMAKE_PREFIX_PATH=/app/plugins/LocalVocal
       - -DENABLE_FRONTEND_API=ON
@@ -290,6 +294,17 @@ modules:
     post-install:
       - install -Dm644 --target-directory=${FLATPAK_DEST}/share/metainfo
           ${FLATPAK_BUILDER_BUILDDIR}/com.obsproject.Studio.Plugin.LocalVocal.metainfo.xml
+      # OBS scans lib/obs-plugins (NOT lib64). Relocate the plugin .so + bundled deps from any
+      # stray lib64/obs-plugins to where OBS looks, then drop the dead standalone-module lib64
+      # copies (build-only dups of the bundled ones) so the bundle stays slim. Post-install runs
+      # reliably in the merged prefix; the old cleanup: block did not actually run here.
+      - |
+        if [ -d "${FLATPAK_DEST}/lib64/obs-plugins" ]; then
+          mkdir -p "${FLATPAK_DEST}/lib/obs-plugins"
+          mv -f "${FLATPAK_DEST}/lib64/obs-plugins"/* "${FLATPAK_DEST}/lib/obs-plugins/" 2>/dev/null || true
+          rmdir "${FLATPAK_DEST}/lib64/obs-plugins" 2>/dev/null || true
+        fi
+        rm -rf "${FLATPAK_DEST}/lib64"
 
 cleanup:
   - /uic-wrapper
@@ -298,12 +313,8 @@ cleanup:
   - /lib/pkgconfig
   - /lib64/cmake
   - /lib64/pkgconfig
-  # Drop the duplicate ggml/whisper/openblas that the standalone modules left in lib64/.
-  # The plugin loads from lib/obs-plugins (see post-install above); lib64 copies are dead weight
-  # and are the source of the ~120 MB bundle bloat. Use explicit rm -rf (find -delete fails on
-  # a non-empty parent dir, per the build skill).
-  - |
-    rm -rf ${FLATPAK_DEST}/lib64
+  # lib64 relocation + removal now happens in the plugin module's post-install (above), where the
+  # merged prefix and shell env are guaranteed to be present. cleanup: no longer strips it here.
   - /share/aclocal
   - "*.la"
   - "*.a"
