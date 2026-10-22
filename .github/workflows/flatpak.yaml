@@ -74,13 +74,23 @@ jobs:
         # of raw files, and never re-add bloat via --runtime-repo static deltas.
         run: |
           set -euo pipefail
+          echo "=== flatpak-build/ top level ==="
+          ls -la flatpak-build
+          echo "=== export repo (repo/) present? ==="
+          ls -la flatpak-build/repo 2>&1 || true
           mkdir -p out
           # flatpak-builder places the extension commit under this runtime ref in repo/.
           REF=$(ostree --repo=flatpak-build/repo refs 2>/dev/null \
                 | grep -E "\.Plugin\.LocalVocal/x86_64/stable$" || true)
+          echo "=== ALL refs in export repo (diagnostic) ==="
+          ostree --repo=flatpak-build/repo refs 2>&1 || true
+          if [ -z "$REF" ]; then
+            echo "WARN: strict ref not found; falling back to any .Plugin.LocalVocal ref" >&2
+            REF=$(ostree --repo=flatpak-build/repo refs 2>/dev/null \
+                  | grep "\.Plugin\.LocalVocal" | head -n1 || true)
+          fi
           if [ -z "$REF" ]; then
             echo "ERROR: no .Plugin.LocalVocal runtime ref in export repo" >&2
-            ostree --repo=flatpak-build/repo refs 2>/dev/null | sed 's/^/  ref: /' >&2 || true
             exit 1
           fi
           echo "Anchoring bundle on ref=$REF"
