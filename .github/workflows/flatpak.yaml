@@ -17,7 +17,11 @@ jobs:
   flatpak-build:
     name: Build Flatpak Extension 📦
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
+    env:
+      # GitHub runners forbid system-scope flatpak ops ("not allowed for user"),
+      # so everything lives in a per-run user dir instead.
+      FLATPAK_USER_DIR: ${{ github.workspace }}/.flatpak-user
     steps:
       - name: Checkout 🍴
         uses: actions/checkout@v6
@@ -29,31 +33,31 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder patchelf gnome-software-plugin-flatpak
 
-      - name: Add flathub remote (system) 🌐
+      - name: Add flathub remote (user) 🌐
         run: |
-          # GitHub runners are root; use system scope. --if-not-exists skips the
-          # "already registered" error on reused runner images.
-          flatpak remote-add --if-not-exists --system flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak update -y --system
+          mkdir -p "${FLATPAK_USER_DIR}"
+          # User scope only -- system scope is disabled on GitHub-hosted runners.
+          flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak update -y --user
 
-      - name: Install OBS Studio runtime + SDK + rust-stable (system) 🔧
+      - name: Install OBS Studio runtime + SDK + rust-stable (user) 🔧
         run: |
+          mkdir -p "${FLATPAK_USER_DIR}"
           # Runtime the extension builds against
-          flatpak install --yes --system flathub com.obsproject.Studio//stable
+          flatpak install --yes --user flathub com.obsproject.Studio//stable
           # Build SDK (must match the OBS runtime) and Rust extension
-          flatpak install --yes --system flathub org.freedesktop.Sdk//25.08
-          flatpak install --yes --system flathub org.freedesktop.Sdk.Extension.rust-stable//25.08
+          flatpak install --yes --user flathub org.freedesktop.Sdk//25.08
+          flatpak install --yes --user flathub org.freedesktop.Sdk.Extension.rust-stable//25.08
 
       - name: Build extension with flatpak-builder 🏗️
         run: |
-          # Builds against system-installed runtimes; --system so the built
-          # extension lands in a location the OBS runtime can load it from.
-          flatpak-builder --system --force-clean \
+          # User scope to match the runtimes installed above; --force-clean for
+          # a reproducible build each time.
+          flatpak-builder --user --force-clean \
             flatpak-build ./flatpak/com.obsproject.Studio.Plugin.LocalVocal.yaml
 
-      - name: Install built extension into runtime 🔌
+      - name: List built extension files 📂
         run: |
-          # Locates the freshly built .so under flatpak-build/app/plugins/LocalVocal
           find flatpak-build -name '*.so' -path '*LocalVocal*' || true
 
       - name: Upload extension artifact 📤
@@ -61,5 +65,5 @@ jobs:
         with:
           name: obs-localvocal-flatpak-extension
           path: |
-            flatpak-build/app/plugins/LocalVocal/**/*
+            flatpak-build/app/plugins/LocalVocal/**/*.so
           if-no-files-found: warn
