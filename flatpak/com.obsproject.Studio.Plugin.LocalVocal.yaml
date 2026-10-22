@@ -35,6 +35,18 @@ modules:
       - -DBUILD_TESTING=OFF
       - -DUSE_OPENMP=ON
       - -DNUM_THREADS=64
+    post-install:
+      # OpenBLAS installs to lib64/ by default (GNUInstallDirs). OBS extensions load from
+      # lib/obs-plugins, and obs-localvocal.so's RPATH resolves bundled deps from
+      # <obs-plugins>/obs-localvocal/, so relocate openblas there (alongside onnx/whisper/ggml)
+      # so dlopen finds it. Copy the versioned symlink chain so the SONAME link resolves.
+      - |
+        for f in lib64/libopenblas.so lib64/libopenblas.so.0 lib64/libopenblas.so.0.3; do
+          if [ -e "${FLATPAK_DEST}/${f}" ]; then
+            cp -v "${FLATPAK_DEST}/${f}" \
+              "${FLATPAK_DEST}/lib/obs-plugins/obs-localvocal/$(basename ${f})"
+          fi
+        done
     sources:
       - type: archive
         url: https://github.com/OpenMathLib/OpenBLAS/archive/refs/tags/v0.3.32.tar.gz
@@ -283,6 +295,12 @@ cleanup:
   - /lib/pkgconfig
   - /lib64/cmake
   - /lib64/pkgconfig
+  # Drop the duplicate ggml/whisper/openblas that the standalone modules left in lib64/.
+  # The plugin loads from lib/obs-plugins (see post-install above); lib64 copies are dead weight
+  # and are the source of the ~120 MB bundle bloat. Use explicit rm -rf (find -delete fails on
+  # a non-empty parent dir, per the build skill).
+  - |
+    rm -rf ${FLATPAK_DEST}/lib64
   - /share/aclocal
   - "*.la"
   - "*.a"

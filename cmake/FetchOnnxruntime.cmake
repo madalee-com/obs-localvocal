@@ -86,7 +86,10 @@ else()
   target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE ${Onnxruntime_LINK_LIBS})
   target_include_directories(${CMAKE_PROJECT_NAME} SYSTEM PUBLIC "${onnxruntime_SOURCE_DIR}/include")
   install(FILES ${Onnxruntime_INSTALL_LIBS} DESTINATION "${CMAKE_INSTALL_LIBDIR}/obs-plugins/${CMAKE_PROJECT_NAME}")
-  set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES INSTALL_RPATH "$ORIGIN/${CMAKE_PROJECT_NAME}")
+  # OBS extensions load from lib/obs-plugins. $ORIGIN lets dlopen find bundled deps placed next to
+  # the .so (e.g. openblas relocated by the flatpak manifest post-install); $ORIGIN/<name> finds the
+  # onnx/whisper/ggml stack installed under obs-plugins/<name>/. Both are needed for a fully self-contained plugin.
+  set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES INSTALL_RPATH "$ORIGIN:$ORIGIN/${CMAKE_PROJECT_NAME}")
 
   find_program(PATCHELF_EXE patchelf)
   if(PATCHELF_EXE)
