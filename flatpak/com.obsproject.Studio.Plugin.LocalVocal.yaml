@@ -40,6 +40,9 @@ modules:
       # lib/obs-plugins, and obs-localvocal.so's RPATH resolves bundled deps from
       # <obs-plugins>/obs-localvocal/, so relocate openblas there (alongside onnx/whisper/ggml)
       # so dlopen finds it. Copy the versioned symlink chain so the SONAME link resolves.
+      # NOTE: obs-localvocal/ is created by the MAIN plugin module's install(), so in this
+      # module's isolated staging tree it may not exist yet -- mkdir -p the path first.
+      - mkdir -p "${FLATPAK_DEST}/lib/obs-plugins/obs-localvocal"
       - |
         for f in lib64/libopenblas.so lib64/libopenblas.so.0 lib64/libopenblas.so.0.3; do
           if [ -e "${FLATPAK_DEST}/${f}" ]; then
