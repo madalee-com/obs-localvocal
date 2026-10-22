@@ -56,14 +56,17 @@ jobs:
           flatpak-builder --user --force-clean \
             flatpak-build ./flatpak/com.obsproject.Studio.Plugin.LocalVocal.yaml
 
-      - name: List built extension files 📂
+      - name: Inspect built extension tree 📂
         run: |
-          find flatpak-build -name '*.so' -path '*LocalVocal*' || true
+          echo "=== all files under flatpak-build ==="
+          find flatpak-build \( -type f -o -type l \) | sed 's#^flatpak-build/##' | sort
+          echo "=== the .so files specifically ==="
+          find flatpak-build -name '*.so*' -path '*LocalVocal*' || true
 
       - name: Upload extension artifact 📤
         uses: actions/upload-artifact@v4
         with:
           name: obs-localvocal-flatpak-extension
           path: |
-            flatpak-build/app/plugins/LocalVocal/**/*.so
+            flatpak-build/app/plugins/LocalVocal/**
           if-no-files-found: warn
