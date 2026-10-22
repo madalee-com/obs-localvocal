@@ -1,7 +1,12 @@
 name: Flatpak Extension Build
-# Builds com.obsproject.Studio.Plugin.LocalVocal as a Flatpak extension.
+# Builds com.obsproject.Studio.Plugin.LocalVocal as a Flatpak EXTENSION.
 # Runs on GitHub-hosted ubuntu runners (O_TMPFILE supported), where flatpak can
 # pull the OBS Studio runtime + org.freedesktop.Sdk//25.08 + rust-stable.
+#
+# This is an EXTENSION build, not an app build:
+#   - manifest has build-extension: true and bundles NO OBS-platform ref,
+#   - we bundle a slim-ish .flatpak from flatpak-builder's export repo (repo/),
+#     anchored on the extension's own runtime ref, NOT via upload-artifact of raw files.
 on:
   workflow_dispatch:
   push:
@@ -52,7 +57,7 @@ jobs:
       - name: Build extension with flatpak-builder 🏗️
         run: |
           # User scope to match the runtimes installed above; --force-clean for
-          # a reproducible build each time.
+          # a reproducible build each time. Produces the export repo under flatpak-build/repo/.
           flatpak-builder --user --force-clean \
             flatpak-build ./flatpak/com.obsproject.Studio.Plugin.LocalVocal.yaml
 
@@ -63,10 +68,30 @@ jobs:
           echo "=== the .so files specifically ==="
           find flatpak-build -name '*.so*' -path '*LocalVocal*' || true
 
+      - name: Bundle extension from export repo 📦
+        # bundle a proper .flatpak (single file, valid metadata) from flatpak-builder's
+        # export repo, anchored on the EXTENSION's runtime ref. We never use upload-artifact
+        # of raw files, and never re-add bloat via --runtime-repo static deltas.
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          # flatpak-builder places the extension commit under this runtime ref in repo/.
+          REF=$(ostree --repo=flatpak-build/repo refs 2>/dev/null \
+                | grep -E "\.Plugin\.LocalVocal/x86_64/stable$" || true)
+          if [ -z "$REF" ]; then
+            echo "ERROR: no .Plugin.LocalVocal runtime ref in export repo" >&2
+            ostree --repo=flatpak-build/repo refs 2>/dev/null | sed 's/^/  ref: /' >&2 || true
+            exit 1
+          fi
+          echo "Anchoring bundle on ref=$REF"
+          flatpak build-bundle flatpak-build/repo out/com.obsproject.Studio.Plugin.LocalVocal.flatpak "$REF" stable
+          ls -lh out/com.obsproject.Studio.Plugin.LocalVocal.flatpak
+
       - name: Upload extension artifact 📤
         uses: actions/upload-artifact@v4
         with:
           name: obs-localvocal-flatpak-extension
           path: |
-            flatpak-build/files/**
-          if-no-files-found: warn
+            out/com.obsproject.Studio.Plugin.LocalVocal.flatpak
+          if-no-files-found: error
+          if: ${{ always() }}
