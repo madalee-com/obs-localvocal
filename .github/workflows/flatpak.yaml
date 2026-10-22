@@ -38,16 +38,16 @@ jobs:
           mkdir -p "${FLATPAK_USER_DIR}"
           # User scope only -- system scope is disabled on GitHub-hosted runners.
           flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak update -y --user
+          flatpak update --noninteractive --user
 
       - name: Install OBS Studio runtime + SDK + rust-stable (user) 🔧
         run: |
           mkdir -p "${FLATPAK_USER_DIR}"
           # Runtime the extension builds against
-          flatpak install --yes --user flathub com.obsproject.Studio//stable
+          flatpak install --noninteractive --user flathub com.obsproject.Studio//stable
           # Build SDK (must match the OBS runtime) and Rust extension
-          flatpak install --yes --user flathub org.freedesktop.Sdk//25.08
-          flatpak install --yes --user flathub org.freedesktop.Sdk.Extension.rust-stable//25.08
+          flatpak install --noninteractive --user flathub org.freedesktop.Sdk//25.08
+          flatpak install --noninteractive --user flathub org.freedesktop.Sdk.Extension.rust-stable//25.08
 
       - name: Build extension with flatpak-builder 🏗️
         run: |
