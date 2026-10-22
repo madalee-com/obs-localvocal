@@ -1,0 +1,61 @@
+name: Flatpak Extension Build
+# Builds com.obsproject.Studio.Plugin.LocalVocal as a Flatpak extension.
+# Runs on GitHub-hosted ubuntu runners (O_TMPFILE supported), where flatpak can
+# pull the OBS Studio runtime + org.freedesktop.Sdk//25.08 + rust-stable.
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - 'flatpak/**'
+      - '.github/workflows/flatpak.yaml'
+
+permissions:
+  contents: read
+
+jobs:
+  flatpak-build:
+    name: Build Flatpak Extension 📦
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout 🍴
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Install flatpak tooling 🛠️
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder patchelf gnome-software-plugin-flatpak
+
+      - name: Add flathub remote 🌐
+        run: |
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak update -y
+
+      - name: Install OBS Studio runtime + SDK + rust-stable 🔧
+        run: |
+          # Runtime the extension builds against
+          flatpak install --yes flathub com.obsproject.Studio//stable
+          # Build SDK (must match the OBS runtime) and Rust extension
+          flatpak install --yes flathub org.freedesktop.Sdk//25.08
+          flatpak install --yes flathub org.freedesktop.Sdk.Extension.rust-stable//25.08
+
+      - name: Build extension with flatpak-builder 🏗️
+        run: |
+          flatpak-builder --user --force-clean \
+            flatpak-build ./flatpak/com.obsproject.Studio.Plugin.LocalVocal.yaml
+
+      - name: Install built extension into runtime 🔌
+        run: |
+          # Locates the freshly built .so under flatpak-build/app/plugins/LocalVocal
+          find flatpak-build -name '*.so' -path '*LocalVocal*' || true
+
+      - name: Upload extension artifact 📤
+        uses: actions/upload-artifact@v4
+        with:
+          name: obs-localvocal-flatpak-extension
+          path: |
+            flatpak-build/app/plugins/LocalVocal/**/*
+          if-no-files-found: warn
