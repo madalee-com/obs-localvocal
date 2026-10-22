@@ -1,0 +1,17 @@
+name: Flatpak Probe
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Environment
+        run: |
+          echo "whoami: $(whoami)"; echo "id: $(id -u)"
+          echo "--- flatpak version ---"; flatpak --version
+          echo "--- try remote-add --system ---"; flatpak remote-add --if-not-exists --system flathub https://flathub.org/repo/flathub.flatpakrepo 2>&1 || echo "EXIT=$?"
+          echo "--- try remote-add --user ---"; flatpak remote-add --if-not-exists --user flathub https://flathub.org/repo/flathub.flatpakrepo 2>&1 || echo "EXIT=$?"
+          echo "--- XDG data dirs ---"; echo "XDG_DATA_HOME=$XDG_DATA_HOME"; echo "$HOME"
+          echo "--- try with FLATPAK_USER_DIR ---"; mkdir -p /tmp/fp && FLATPAK_USER_DIR=/tmp/fp flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo 2>&1 || echo "EXIT=$?"
