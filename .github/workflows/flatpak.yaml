@@ -68,5 +68,5 @@ jobs:
         with:
           name: obs-localvocal-flatpak-extension
           path: |
-            flatpak-build/app/plugins/LocalVocal/**
+            flatpak-build/files/**
           if-no-files-found: warn
