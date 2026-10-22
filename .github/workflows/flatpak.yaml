@@ -56,9 +56,16 @@ jobs:
 
       - name: Build extension with flatpak-builder 🏗️
         run: |
-          # User scope to match the runtimes installed above; --force-clean for
-          # a reproducible build each time. Produces the export repo under flatpak-build/repo/.
+          # User scope to match the runtimes installed above; --force-clean for a
+          # reproducible build. Build into an empty builddir (--force-clean), then
+          # commit into a NAMED export repo (repo/) at <builddir>/repo. flatpak-builder
+          # only writes this named ostree repo when explicitly told via --export; with
+          # --user scope it does NOT place a repo/ under the builddir otherwise, which
+          # is exactly why the previous version found an empty export tree.
+          mkdir -p flatpak-build/repo
+          git init -q flatpak-build/repo
           flatpak-builder --user --force-clean \
+            --export=repo \
             flatpak-build ./flatpak/com.obsproject.Studio.Plugin.LocalVocal.yaml
 
       - name: Inspect built extension tree 📂
@@ -69,28 +76,23 @@ jobs:
           find flatpak-build -name '*.so*' -path '*LocalVocal*' || true
 
       - name: Bundle extension from export repo 📦
-        # bundle a proper .flatpak (single file, valid metadata) from flatpak-builder's
-        # export repo, anchored on the EXTENSION's runtime ref. We never use upload-artifact
-        # of raw files, and never re-add bloat via --runtime-repo static deltas.
+        # bundle a proper .flatpak (single file, valid metadata) from the NAMED export
+        # repo committed by flatpak-builder (--export=repo), anchored on the EXTENSION's
+        # own runtime ref (.Plugin.LocalVocal/...), NOT the OBS platform ref. We never
+        # use upload-artifact of raw files, and never re-add bloat via --runtime-repo.
         run: |
           set -euo pipefail
-          echo "=== flatpak-build/ top level ==="
-          ls -la flatpak-build
-          echo "=== export repo (repo/) present? ==="
-          ls -la flatpak-build/repo 2>&1 || true
           mkdir -p out
-          # flatpak-builder places the extension commit under this runtime ref in repo/.
-          REF=$(ostree --repo=flatpak-build/repo refs 2>/dev/null \
-                | grep -E "\.Plugin\.LocalVocal/x86_64/stable$" || true)
-          echo "=== ALL refs in export repo (diagnostic) ==="
-          ostree --repo=flatpak-build/repo refs 2>&1 || true
-          if [ -z "$REF" ]; then
-            echo "WARN: strict ref not found; falling back to any .Plugin.LocalVocal ref" >&2
-            REF=$(ostree --repo=flatpak-build/repo refs 2>/dev/null \
-                  | grep "\.Plugin\.LocalVocal" | head -n1 || true)
+          if [ ! -d flatpak-build/repo ]; then
+            echo "ERROR: no export repo at flatpak-build/repo (commit may have failed)" >&2
+            exit 1
           fi
+          # The extension's runtime ref in the export repo.
+          REF=$(ostree --repo=flatpak-build/repo refs 2>/dev/null \
+                | grep -E "com\.obsproject\.Studio\.Plugin\.LocalVocal/" || true)
           if [ -z "$REF" ]; then
-            echo "ERROR: no .Plugin.LocalVocal runtime ref in export repo" >&2
+            echo "ERROR: no .Plugin.LocalVocal ref in export repo" >&2
+            ostree --repo=flatpak-build/repo refs 2>&1 | sed 's/^/  ref: /' >&2 || true
             exit 1
           fi
           echo "Anchoring bundle on ref=$REF"
