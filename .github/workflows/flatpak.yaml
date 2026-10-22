@@ -29,22 +29,26 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y flatpak flatpak-builder patchelf gnome-software-plugin-flatpak
 
-      - name: Add flathub remote 🌐
+      - name: Add flathub remote (system) 🌐
         run: |
-          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak update -y
+          # GitHub runners are root; use system scope. --if-not-exists skips the
+          # "already registered" error on reused runner images.
+          flatpak remote-add --if-not-exists --system flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak update -y --system
 
-      - name: Install OBS Studio runtime + SDK + rust-stable 🔧
+      - name: Install OBS Studio runtime + SDK + rust-stable (system) 🔧
         run: |
           # Runtime the extension builds against
-          flatpak install --yes flathub com.obsproject.Studio//stable
+          flatpak install --yes --system flathub com.obsproject.Studio//stable
           # Build SDK (must match the OBS runtime) and Rust extension
-          flatpak install --yes flathub org.freedesktop.Sdk//25.08
-          flatpak install --yes flathub org.freedesktop.Sdk.Extension.rust-stable//25.08
+          flatpak install --yes --system flathub org.freedesktop.Sdk//25.08
+          flatpak install --yes --system flathub org.freedesktop.Sdk.Extension.rust-stable//25.08
 
       - name: Build extension with flatpak-builder 🏗️
         run: |
-          flatpak-builder --user --force-clean \
+          # Builds against system-installed runtimes; --system so the built
+          # extension lands in a location the OBS runtime can load it from.
+          flatpak-builder --system --force-clean \
             flatpak-build ./flatpak/com.obsproject.Studio.Plugin.LocalVocal.yaml
 
       - name: Install built extension into runtime 🔌
