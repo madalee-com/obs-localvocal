@@ -57,15 +57,14 @@ jobs:
       - name: Build extension with flatpak-builder 🏗️
         run: |
           # User scope to match the runtimes installed above; --force-clean for a
-          # reproducible build. Build into an empty builddir (--force-clean), then
-          # commit into a NAMED export repo (repo/) at <builddir>/repo. flatpak-builder
-          # only writes this named ostree repo when explicitly told via --export; with
-          # --user scope it does NOT place a repo/ under the builddir otherwise, which
-          # is exactly why the previous version found an empty export tree.
-          mkdir -p flatpak-build/repo
-          git init -q flatpak-build/repo
+          # reproducible build. Explicitly write the export (write-only) ostree repo
+          # into flatpak-build/repo via --repo=DIR. With --user scope and no explicit
+          # --repo, flatpak-builder's commit emitted no "<hash> to <builddir>/repo" line
+          # and left no repo/ behind, which is exactly why bundling from the export
+          # repo previously failed. --repo=DIR forces the named export repo to exist.
+          rm -rf flatpak-build && mkdir -p flatpak-build
           flatpak-builder --user --force-clean \
-            --export=repo \
+            --repo=flatpak-build/repo \
             flatpak-build ./flatpak/com.obsproject.Studio.Plugin.LocalVocal.yaml
 
       - name: Inspect built extension tree 📂
