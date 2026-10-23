@@ -2,6 +2,8 @@
 
 If you’re looking for a hosted desktop recording API, consider checking out [Recall.ai](https://www.recall.ai/product/desktop-recording-sdk?utm_source=github&utm_medium=sponsorship&utm_campaign=royshil-obs-localvocal), an API that records Zoom, Google Meet, Microsoft Teams, in-person meetings, and more.
 
+> **Note:** This repository is a fork of [locaal-ai/obs-localvocal](https://github.com/locaal-ai/obs-localvocal) that adds automated Flatpak extension building through GitHub Actions. The source code is otherwise identical — the only difference is the CI workflow that builds and publishes the `com.obsproject.Studio.Plugin.LocalVocal` flatpak bundle on version-tag pushes. For upstream changes, development, and issues, see [the original repo](https://github.com/locaal-ai/obs-localvocal).
+
 # LocalVocal - Speech AI assistant OBS Plugin
 
 <div align="center">
